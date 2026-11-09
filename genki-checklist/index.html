@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ゲンキ セルフ診断</title>
+  <style>
+    :root{
+      --bg:#0f1220; --card:#1a1f35; --text:#f5f7ff; --sub:#b8bfdc;
+      --accent:#6ee7ff; --good:#35d07f; --bad:#ff6b6b; --warn:#ffd166; --border:#2a3154;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    html,body{margin:0;padding:0;}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+      background:linear-gradient(180deg,#0b0e19 0%,#151a2e 100%);
+      color:var(--text); min-height:100vh; padding:16px;
+      display:flex; justify-content:center;
+    }
+    .app{width:min(100%,520px);}
+    h1{font-size:26px;margin:8px 0 4px;}
+    .lead{color:var(--sub);font-size:14px;line-height:1.6;margin:0 0 16px;}
+    .card{
+      background:rgba(26,31,53,.95); border:1px solid var(--border);
+      border-radius:20px; padding:18px; margin-bottom:16px;
+      box-shadow:0 18px 40px rgba(0,0,0,.35);
+    }
+    .menu button{
+      display:block;width:100%;text-align:left;margin:0 0 10px;
+      background:#232a48;border:1px solid var(--border);color:var(--text);
+      border-radius:14px;padding:14px 16px;font-size:16px;cursor:pointer;
+    }
+    .menu button small{display:block;color:var(--sub);font-size:12px;margin-top:4px;}
+    .menu button:hover{border-color:var(--accent);}
+    h2{font-size:20px;margin:0 0 4px;}
+    .meta{color:var(--sub);font-size:12px;margin:0 0 14px;}
+    label.item{
+      display:flex;gap:12px;align-items:flex-start;
+      background:#232a48;border:1px solid var(--border);border-radius:12px;
+      padding:12px 14px;margin-bottom:8px;font-size:15px;line-height:1.5;cursor:pointer;
+    }
+    label.item input{width:20px;height:20px;margin:2px 0 0;flex:none;accent-color:var(--accent);}
+    label.item:has(input:checked){border-color:var(--accent);}
+    .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+    .btn{
+      flex:1;min-width:120px;border:none;border-radius:12px;padding:13px;
+      font-size:16px;font-weight:700;cursor:pointer;
+    }
+    .primary{background:var(--accent);color:#0b0e19;}
+    .ghost{background:transparent;color:var(--sub);border:1px solid var(--border);}
+    .result{margin-top:16px;padding:16px;border-radius:14px;border:2px solid;display:none;line-height:1.6;}
+    .result.show{display:block;}
+    .result.ok{border-color:var(--good);background:rgba(53,208,127,.08);}
+    .result.warn{border-color:var(--warn);background:rgba(255,209,102,.08);}
+    .result.bad{border-color:var(--bad);background:rgba(255,107,107,.08);}
+    .result .big{font-size:20px;font-weight:800;margin-bottom:6px;}
+    .meter{height:10px;background:#232a48;border-radius:99px;overflow:hidden;margin:8px 0 10px;}
+    .meter span{display:block;height:100%;border-radius:99px;transition:width .4s;}
+    .timer{text-align:center;}
+    .timer .sec{font-size:56px;font-weight:800;font-variant-numeric:tabular-nums;margin:10px 0;}
+    ol.steps{padding-left:20px;line-height:1.7;font-size:15px;margin:0 0 6px;}
+    .note{color:var(--sub);font-size:12px;line-height:1.6;}
+    a{color:var(--accent);}
+    .hidden{display:none;}
+  </style>
+</head>
+<body>
+<div class="app">
+  <h1>ゲンキ セルフ診断</h1>
+  <p class="lead">「健康カプセル！ゲンキの時間」で紹介されたセルフチェックをもとにした簡単な診断です。当てはまるものにチェックしてください。</p>
+
+  <div id="menu" class="card menu"></div>
+  <div id="quiz" class="card hidden"></div>
+
+  <p class="note">
+    ※ この診断は目安です。医師の診断に代わるものではありません。気になる症状がある場合は医療機関に相談してください。<br>
+    ※ 項目は番組公式ページの内容を要約したもので、番組の原文とは言い回しが違います。正確な内容は各回の公式ページで確認してください。
+  </p>
+</div>
+
+<script>
+const TESTS = [
+  {
+    id: "liver",
+    title: "隠れ脂肪肝チェック",
+    desc: "見た目がスリムでも油断禁物",
+    meta: "2020/12/20放送「侮れない！脂肪肝の恐怖」より ・ 3つ以上で要注意",
+    url: "https://hicbc.com/tv/genki/archive/201220/",
+    threshold: 3,
+    items: [
+      "週に3日以上お酒を飲む",
+      "通勤や買い物はほとんど車で移動する",
+      "20歳の頃より体重が10kg以上増えた",
+      "ジュースなど甘い飲み物をよく飲む",
+      "寝る前2時間以内に食べることがある",
+      "睡眠時間が平均6時間未満",
+    ],
+    good: "脂肪肝の可能性は低めです。今の生活習慣をキープしましょう。",
+    badMsg: "脂肪肝の可能性があります。健康診断の肝臓の数値（ALTなど）を確認し、気になる場合は医療機関に相談しましょう。",
+  },
+  {
+    id: "teeth",
+    title: "歯周病セルフチェック",
+    desc: "歯ぐき・口の中の状態から",
+    meta: "2019/6/2放送「歯周病」より ・ 3つ以上で要注意",
+    url: "https://hicbc.com/tv/genki/archive/190602/",
+    threshold: 3,
+    items: [
+      "歯ぐきの色が気になる（赤い・紫っぽいなど）",
+      "歯の表面を舌でさわるとザラつく",
+      "歯みがきのときに血が出る",
+      "朝起きると口の中がネバつく",
+      "歯と歯の間に食べ物がはさまりやすい",
+    ],
+    good: "歯周病の可能性は低めです。毎日の歯みがきと定期的な歯科検診を続けましょう。",
+    badMsg: "歯周病の可能性があります。早めに歯科を受診して、歯ぐきの状態を診てもらいましょう。",
+  },
+  {
+    id: "capillary",
+    type: "timer",
+    title: "毛細血管チェック",
+    desc: "爪を押して血流をはかる",
+    meta: "2017/6/18放送「毛細血管」より ・ 約2秒が目安",
+    url: "https://hicbc.com/tv/genki/archive/170618/",
+  },
+];
+
+const $menu = document.getElementById("menu");
+const $quiz = document.getElementById("quiz");
+
+function showMenu(){
+  $quiz.classList.add("hidden");
+  $menu.classList.remove("hidden");
+  $menu.innerHTML = TESTS.map(t =>
+    `<button data-id="${t.id}">${t.title}<small>${t.desc}</small></button>`).join("");
+  $menu.querySelectorAll("button").forEach(b =>
+    b.onclick = () => start(TESTS.find(t => t.id === b.dataset.id)));
+  window.scrollTo(0,0);
+}
+
+function header(t){
+  return `<h2>${t.title}</h2><p class="meta">${t.meta}<br><a href="${t.url}" target="_blank" rel="noopener">番組公式ページ</a></p>`;
+}
+
+function start(t){
+  $menu.classList.add("hidden");
+  $quiz.classList.remove("hidden");
+  window.scrollTo(0,0);
+  if (t.type === "timer") return startTimer(t);
+
+  $quiz.innerHTML = header(t) +
+    t.items.map((s,i) => `<label class="item"><input type="checkbox" value="${i}"><span>${s}</span></label>`).join("") +
+    `<div class="btns"><button class="btn primary" id="judge">診断する</button><button class="btn ghost" id="back">一覧へ</button></div>
+     <div class="result" id="res"></div>`;
+  document.getElementById("back").onclick = showMenu;
+  document.getElementById("judge").onclick = () => {
+    const n = $quiz.querySelectorAll("input:checked").length;
+    const res = document.getElementById("res");
+    let cls, head, msg, color;
+    if (n >= t.threshold){ cls="bad"; head="要注意"; msg=t.badMsg; color="var(--bad)"; }
+    else if (n > 0){ cls="warn"; head="今のところ大丈夫"; msg=t.good + " 当てはまった項目は改善してみましょう。"; color="var(--warn)"; }
+    else { cls="ok"; head="問題なし"; msg=t.good; color="var(--good)"; }
+    res.className = "result show " + cls;
+    res.innerHTML = `<div class="big">${head}（${n} / ${t.items.length}）</div>
+      <div class="meter"><span style="width:${n/t.items.length*100}%;background:${color}"></span></div>${msg}`;
+    res.scrollIntoView({behavior:"smooth", block:"nearest"});
+  };
+}
+
+function startTimer(t){
+  $quiz.innerHTML = header(t) + `
+    <ol class="steps">
+      <li>片手の親指で、もう片方の手の爪の根元を<b>5秒間</b>ぎゅっと押す</li>
+      <li>指を離すと同時に「スタート」をタップ</li>
+      <li>爪に赤みが戻ったら「ストップ」をタップ</li>
+    </ol>
+    <div class="timer"><div class="sec" id="sec">0.0</div></div>
+    <div class="btns">
+      <button class="btn primary" id="tbtn">スタート</button>
+      <button class="btn ghost" id="back">一覧へ</button>
+    </div>
+    <div class="result" id="res"></div>`;
+  document.getElementById("back").onclick = () => { stop(); showMenu(); };
+  const $sec = document.getElementById("sec"), $btn = document.getElementById("tbtn"), res = document.getElementById("res");
+  let t0 = 0, raf = 0, running = false;
+  function tick(){ $sec.textContent = ((performance.now()-t0)/1000).toFixed(1); raf = requestAnimationFrame(tick); }
+  function stop(){ cancelAnimationFrame(raf); running = false; }
+  $btn.onclick = () => {
+    if (!running){
+      res.className = "result"; t0 = performance.now(); running = true; tick(); $btn.textContent = "ストップ";
+    } else {
+      stop();
+      const s = (performance.now()-t0)/1000;
+      $sec.textContent = s.toFixed(1);
+      $btn.textContent = "もう一度";
+      if (s <= 2){
+        res.className = "result show ok";
+        res.innerHTML = `<div class="big">良好（${s.toFixed(1)}秒）</div>約2秒以内に赤みが戻りました。毛細血管の血流は良好と考えられます。`;
+      } else {
+        res.className = "result show warn";
+        res.innerHTML = `<div class="big">血流がゆっくりかも（${s.toFixed(1)}秒）</div>目安の約2秒より時間がかかりました。手が冷えていると遅くなるので、温めてもう一度試してみましょう。適度な運動や体を温めることで血流の改善が期待できます。`;
+      }
+    }
+  };
+}
+
+showMenu();
+</script>
+</body>
+</html>
